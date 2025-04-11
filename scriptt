@@ -1,0 +1,141 @@
+-- Executor script
+
+local UIS = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- GUI container
+local gui = Instance.new("ScreenGui", playerGui)
+gui.Name = "SpeedGui"
+gui.ResetOnSpawn = false
+
+-- === DRAG FUNCTION ===
+local function makeDraggable(obj)
+	local dragging, dragStart, startPos
+	obj.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startPos = obj.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then dragging = false end
+			end)
+		end
+	end)
+
+	UIS.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = input.Position - dragStart
+			obj.Position = UDim2.new(
+				startPos.X.Scale, startPos.X.Offset + delta.X,
+				startPos.Y.Scale, startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+end
+
+-- === DRAGGABLE ICON ===
+local icon = Instance.new("ImageButton")
+icon.Size = UDim2.new(0, 60, 0, 60)
+icon.Position = UDim2.new(0, 20, 0, 20)
+icon.Image = "rbxassetid://17747166627"
+icon.BackgroundTransparency = 1
+icon.Active = true
+icon.Selectable = true
+icon.Parent = gui
+
+makeDraggable(icon)
+
+-- === GUI Frame ===
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 250, 0, 180)
+frame.Position = UDim2.new(0.5, -125, 0.5, -90)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Visible = false
+frame.Active = true
+frame.Parent = gui
+
+makeDraggable(frame)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 40)
+title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+title.Text = "Walkspeed Controller"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.TextSize = 20
+title.Font = Enum.Font.SourceSansBold
+title.Parent = frame
+
+-- Speed Display
+local speedDisplay = Instance.new("TextLabel")
+speedDisplay.Position = UDim2.new(0.5, -50, 0, 50)
+speedDisplay.Size = UDim2.new(0, 100, 0, 30)
+speedDisplay.Text = "Speed: " .. humanoid.WalkSpeed
+speedDisplay.TextColor3 = Color3.new(1, 1, 1)
+speedDisplay.BackgroundTransparency = 1
+speedDisplay.TextSize = 18
+speedDisplay.Font = Enum.Font.SourceSansBold
+speedDisplay.Parent = frame
+
+-- + Button
+local plusBtn = Instance.new("TextButton")
+plusBtn.Text = "+"
+plusBtn.Size = UDim2.new(0, 50, 0, 30)
+plusBtn.Position = UDim2.new(0.5, 10, 1, -40)
+plusBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+plusBtn.TextColor3 = Color3.new(1, 1, 1)
+plusBtn.Font = Enum.Font.SourceSans
+plusBtn.TextSize = 24
+plusBtn.Parent = frame
+
+-- – Button
+local minusBtn = Instance.new("TextButton")
+minusBtn.Text = "-"
+minusBtn.Size = UDim2.new(0, 50, 0, 30)
+minusBtn.Position = UDim2.new(0.5, -60, 1, -40)
+minusBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+minusBtn.TextColor3 = Color3.new(1, 1, 1)
+minusBtn.Font = Enum.Font.SourceSans
+minusBtn.TextSize = 24
+minusBtn.Parent = frame
+
+-- Default Walkspeed Button
+local defaultBtn = Instance.new("TextButton")
+defaultBtn.Text = "Default Walkspeed (16 ws)"
+defaultBtn.Size = UDim2.new(0, 200, 0, 30)
+defaultBtn.Position = UDim2.new(0.5, -100, 0, 100)
+defaultBtn.BackgroundColor3 = Color3.fromRGB(0, 128, 255)
+defaultBtn.TextColor3 = Color3.new(1, 1, 1)
+defaultBtn.Font = Enum.Font.SourceSansBold
+defaultBtn.TextSize = 16
+defaultBtn.Parent = frame
+
+-- === BUTTON EVENTS ===
+icon.MouseButton1Click:Connect(function()
+	frame.Visible = not frame.Visible
+end)
+
+plusBtn.MouseButton1Click:Connect(function()
+	if humanoid.WalkSpeed < 1000 then
+		humanoid.WalkSpeed += 1
+	end
+end)
+
+minusBtn.MouseButton1Click:Connect(function()
+	if humanoid.WalkSpeed > 0 then
+		humanoid.WalkSpeed -= 1
+	end
+end)
+
+defaultBtn.MouseButton1Click:Connect(function()
+	humanoid.WalkSpeed = 16
+end)
+
+-- Update Speed Text
+game:GetService("RunService").RenderStepped:Connect(function()
+	speedDisplay.Text = "Speed: " .. math.floor(humanoid.WalkSpeed)
+end)
