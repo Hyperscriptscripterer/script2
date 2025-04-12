@@ -1,141 +1,149 @@
--- Executor script
+-- Must be run in an Executor
 
-local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local playerGui = player:WaitForChild("PlayerGui")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
--- GUI container
-local gui = Instance.new("ScreenGui", playerGui)
-gui.Name = "SpeedGui"
-gui.ResetOnSpawn = false
+-- Create GUI
+local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+screenGui.Name = "SpectateGUI"
+screenGui.ResetOnSpawn = false
 
--- === DRAG FUNCTION ===
-local function makeDraggable(obj)
-	local dragging, dragStart, startPos
-	obj.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			dragStart = input.Position
-			startPos = obj.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then dragging = false end
-			end)
-		end
-	end)
+-- Open Button
+local openBtn = Instance.new("TextButton", screenGui)
+openBtn.Size = UDim2.new(0, 60, 0, 60)
+openBtn.Position = UDim2.new(0.1, -75, 0.5, -75)
+openBtn.BackgroundColor3 = Color3.new(1,1,1)
+openBtn.Text = "Open"
+openBtn.TextScaled = true
+openBtn.Name = "OpenSpectate"
 
-	UIS.InputChanged:Connect(function(input)
-		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-			local delta = input.Position - dragStart
-			obj.Position = UDim2.new(
-				startPos.X.Scale, startPos.X.Offset + delta.X,
-				startPos.Y.Scale, startPos.Y.Offset + delta.Y
-			)
-		end
-	end)
+-- Spectate Frame
+local spectateFrame = Instance.new("Frame", screenGui)
+spectateFrame.Size = UDim2.new(0, 350, 0, 200)
+spectateFrame.Position = UDim2.new(0.5, -175, 0.5, -100)
+spectateFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+spectateFrame.Visible = false
+spectateFrame.Active = true
+spectateFrame.Draggable = true
+
+-- Rainbow Outline
+local outline = Instance.new("UIStroke", spectateFrame)
+outline.Thickness = 4
+
+task.spawn(function()
+	while true do
+		local t = tick()
+		outline.Color = Color3.fromHSV(t % 5 / 5, 1, 1)
+		wait(0.1)
+	end
+end)
+
+-- Name Label
+local nameLabel = Instance.new("TextLabel", spectateFrame)
+nameLabel.Size = UDim2.new(1, -10, 0, 50)
+nameLabel.Position = UDim2.new(0, 5, 0, 5)
+nameLabel.BackgroundColor3 = Color3.new(1, 1, 1)
+nameLabel.TextColor3 = Color3.new(0.2, 0.2, 0.2)
+nameLabel.TextScaled = true
+nameLabel.Font = Enum.Font.SourceSansBold
+nameLabel.Text = "@Username | Display Name"
+
+-- Buttons
+local btnY = 60
+
+local function createBtn(name, text, xOffset, color)
+	local btn = Instance.new("TextButton", spectateFrame)
+	btn.Size = UDim2.new(0, 70, 0, 40)
+	btn.Position = UDim2.new(0, xOffset, 0, btnY)
+	btn.Text = text
+	btn.Name = name
+	btn.BackgroundColor3 = color
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.TextScaled = true
+	btn.Font = Enum.Font.SourceSansBold
+	return btn
 end
 
--- === DRAGGABLE ICON ===
-local icon = Instance.new("ImageButton")
-icon.Size = UDim2.new(0, 60, 0, 60)
-icon.Position = UDim2.new(0, 20, 0, 20)
-icon.Image = "rbxassetid://17747166627"
-icon.BackgroundTransparency = 1
-icon.Active = true
-icon.Selectable = true
-icon.Parent = gui
+local leftBtn = createBtn("LeftBtn", "<", 10, Color3.fromRGB(120,120,120))
+local copyBtn = createBtn("CopyBtn", "Copy", 95, Color3.fromRGB(0, 0, 0))
+local rightBtn = createBtn("RightBtn", ">", 180, Color3.fromRGB(120,120,120))
+local closeBtn = createBtn("CloseBtn", "X", 265, Color3.fromRGB(200,0,0))
 
-makeDraggable(icon)
+-- Studs label
+local studsLabel = Instance.new("TextLabel", spectateFrame)
+studsLabel.Size = UDim2.new(0, 120, 0, 30)
+studsLabel.Position = UDim2.new(1, -125, 1, -35)
+studsLabel.BackgroundTransparency = 1
+studsLabel.Text = "Studs: 0"
+studsLabel.TextColor3 = Color3.fromRGB(170, 170, 170)
+studsLabel.Font = Enum.Font.SourceSansBold
+studsLabel.TextScaled = true
 
--- === GUI Frame ===
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 180)
-frame.Position = UDim2.new(0.5, -125, 0.5, -90)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.Visible = false
-frame.Active = true
-frame.Parent = gui
+-- Spectate logic
+local index = 1
+local function updateSpectate()
+	local players = Players:GetPlayers()
+	if #players == 0 then
+		nameLabel.Text = "No players"
+		return
+	end
 
-makeDraggable(frame)
+	if index > #players then index = 1 end
+	if index < 1 then index = #players end
 
--- Title
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
-title.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-title.Text = "Walkspeed Controller"
-title.TextColor3 = Color3.new(1, 1, 1)
-title.TextSize = 20
-title.Font = Enum.Font.SourceSansBold
-title.Parent = frame
+	local target = players[index]
+	if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+		Camera.CameraSubject = target.Character:FindFirstChild("Humanoid")
+		nameLabel.Text = "@" .. target.Name .. " | " .. target.DisplayName
+	else
+		nameLabel.Text = "Waiting..."
+	end
+end
 
--- Speed Display
-local speedDisplay = Instance.new("TextLabel")
-speedDisplay.Position = UDim2.new(0.5, -50, 0, 50)
-speedDisplay.Size = UDim2.new(0, 100, 0, 30)
-speedDisplay.Text = "Speed: " .. humanoid.WalkSpeed
-speedDisplay.TextColor3 = Color3.new(1, 1, 1)
-speedDisplay.BackgroundTransparency = 1
-speedDisplay.TextSize = 18
-speedDisplay.Font = Enum.Font.SourceSansBold
-speedDisplay.Parent = frame
-
--- + Button
-local plusBtn = Instance.new("TextButton")
-plusBtn.Text = "+"
-plusBtn.Size = UDim2.new(0, 50, 0, 30)
-plusBtn.Position = UDim2.new(0.5, 10, 1, -40)
-plusBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-plusBtn.TextColor3 = Color3.new(1, 1, 1)
-plusBtn.Font = Enum.Font.SourceSans
-plusBtn.TextSize = 24
-plusBtn.Parent = frame
-
--- – Button
-local minusBtn = Instance.new("TextButton")
-minusBtn.Text = "-"
-minusBtn.Size = UDim2.new(0, 50, 0, 30)
-minusBtn.Position = UDim2.new(0.5, -60, 1, -40)
-minusBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-minusBtn.TextColor3 = Color3.new(1, 1, 1)
-minusBtn.Font = Enum.Font.SourceSans
-minusBtn.TextSize = 24
-minusBtn.Parent = frame
-
--- Default Walkspeed Button
-local defaultBtn = Instance.new("TextButton")
-defaultBtn.Text = "Default Walkspeed (16 ws)"
-defaultBtn.Size = UDim2.new(0, 200, 0, 30)
-defaultBtn.Position = UDim2.new(0.5, -100, 0, 100)
-defaultBtn.BackgroundColor3 = Color3.fromRGB(0, 128, 255)
-defaultBtn.TextColor3 = Color3.new(1, 1, 1)
-defaultBtn.Font = Enum.Font.SourceSansBold
-defaultBtn.TextSize = 16
-defaultBtn.Parent = frame
-
--- === BUTTON EVENTS ===
-icon.MouseButton1Click:Connect(function()
-	frame.Visible = not frame.Visible
+leftBtn.MouseButton1Click:Connect(function()
+	index -= 1
+	updateSpectate()
 end)
 
-plusBtn.MouseButton1Click:Connect(function()
-	if humanoid.WalkSpeed < 1000 then
-		humanoid.WalkSpeed += 1
+rightBtn.MouseButton1Click:Connect(function()
+	index += 1
+	updateSpectate()
+end)
+
+copyBtn.MouseButton1Click:Connect(function()
+	local players = Players:GetPlayers()
+	local target = players[index]
+	if target then
+		setclipboard(target.Name)
 	end
 end)
 
-minusBtn.MouseButton1Click:Connect(function()
-	if humanoid.WalkSpeed > 0 then
-		humanoid.WalkSpeed -= 1
+closeBtn.MouseButton1Click:Connect(function()
+	spectateFrame.Visible = false
+end)
+
+openBtn.MouseButton1Click:Connect(function()
+	spectateFrame.Visible = not spectateFrame.Visible
+	updateSpectate()
+end)
+
+-- Update studs distance
+RunService.RenderStepped:Connect(function()
+	if not spectateFrame.Visible then return end
+
+	local players = Players:GetPlayers()
+	local target = players[index]
+	if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+		local dist = (target.Character.HumanoidRootPart.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+		studsLabel.Text = "Studs: " .. math.floor(dist)
+	else
+		studsLabel.Text = "Studs: 0"
 	end
 end)
 
-defaultBtn.MouseButton1Click:Connect(function()
-	humanoid.WalkSpeed = 16
-end)
-
--- Update Speed Text
-game:GetService("RunService").RenderStepped:Connect(function()
-	speedDisplay.Text = "Speed: " .. math.floor(humanoid.WalkSpeed)
-end)
+-- Auto refresh
+Players.PlayerAdded:Connect(updateSpectate)
+Players.PlayerRemoving:Connect(updateSpectate)
